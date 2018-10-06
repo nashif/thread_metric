@@ -156,8 +156,14 @@ int  tm_semaphore_create(int semaphore_id)
    return TM_SUCCESS. Otherwise, TM_ERROR should be returned.  */
 int  tm_semaphore_get(int semaphore_id)
 {
-  k_sem_take(&semaphores[semaphore_id], K_NO_WAIT);
-  return TM_SUCCESS;
+  int ret;
+  ret = k_sem_take(&semaphores[semaphore_id], K_NO_WAIT);
+  
+  if (ret == 0) {
+    return TM_SUCCESS;
+  } else {
+    return TM_ERROR;
+  }
 }
 
 

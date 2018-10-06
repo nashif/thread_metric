@@ -1,25 +1,25 @@
-/**************************************************************************/ 
-/*                                                                        */ 
-/*            Copyright (c) 1996-2016 by Express Logic Inc.               */ 
-/*                                                                        */ 
-/*  This Original Work may be modified, distributed, or otherwise used in */ 
-/*  any manner with no obligations other than the following:              */ 
-/*                                                                        */ 
-/*    1. This legend must be retained in its entirety in any source code  */ 
-/*       copies of this Work.                                             */ 
-/*                                                                        */ 
+/**************************************************************************/
+/*                                                                        */
+/*            Copyright (c) 1996-2016 by Express Logic Inc.               */
+/*                                                                        */
+/*  This Original Work may be modified, distributed, or otherwise used in */
+/*  any manner with no obligations other than the following:              */
+/*                                                                        */
+/*    1. This legend must be retained in its entirety in any source code  */
+/*       copies of this Work.                                             */
+/*                                                                        */
 /*    2. This software may not be used in the development of an operating */
-/*       system product.                                                  */ 
-/*                                                                        */  
-/*  This Original Work is hereby provided on an "AS IS" BASIS and WITHOUT */ 
-/*  WARRANTY, either express or implied, including, without limitation,   */ 
-/*  the warranties of NON-INFRINGEMENT, MERCHANTABILITY or FITNESS FOR A  */ 
-/*  PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY OF this         */ 
-/*  ORIGINAL WORK IS WITH the user.                                       */ 
-/*                                                                        */ 
-/*  Express Logic, Inc. reserves the right to modify this software        */ 
-/*  without notice.                                                       */ 
-/*                                                                        */ 
+/*       system product.                                                  */
+/*                                                                        */
+/*  This Original Work is hereby provided on an "AS IS" BASIS and WITHOUT */
+/*  WARRANTY, either express or implied, including, without limitation,   */
+/*  the warranties of NON-INFRINGEMENT, MERCHANTABILITY or FITNESS FOR A  */
+/*  PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY OF this         */
+/*  ORIGINAL WORK IS WITH the user.                                       */
+/*                                                                        */
+/*  Express Logic, Inc. reserves the right to modify this software        */
+/*  without notice.                                                       */
+/*                                                                        */
 /*  Express Logic, Inc.                     info@expresslogic.com         */
 /*  11423 West Bernardo Court               http://www.expresslogic.com   */
 /*  San Diego, CA  92127                                                  */
@@ -28,7 +28,7 @@
 
 /**************************************************************************/
 /**************************************************************************/
-/**                                                                       */ 
+/**                                                                       */
 /** Thread-Metric Component                                               */
 /**                                                                       */
 /**   Interrupt Processing Test                                           */
@@ -38,6 +38,7 @@
 
 #include "tm_api.h"
 #include <stdio.h>
+#include <irq_offload.h>
 
 
 /* Define the counters used in the demo application...  */
@@ -86,18 +87,31 @@ void  tm_interrupt_processing_initialize(void)
     /* Create thread that generates the interrupt at priority 10.  */
     tm_thread_create(0, 10, tm_interrupt_thread_0_entry);
 
-    /* Create a semaphore that will be posted from the interrupt 
+    /* Create a semaphore that will be posted from the interrupt
        handler.  */
     tm_semaphore_create(0);
 
     /* Resume just thread 0.  */
     tm_thread_resume(0);
 
-    /* Create the reporting thread. It will preempt the other 
+    /* Create the reporting thread. It will preempt the other
        threads and print out the test results.  */
     tm_thread_create(5, 2, tm_interrupt_thread_report);
     tm_thread_resume(5);
-   
+
+}
+
+
+
+/* void  tm_interrupt_preemption_handler(void)  */
+void SVC_Handler(void *param)        /* This is Cortex-M specific  */
+{
+    ARG_UNUSED(param);
+
+    tm_interrupt_handler_counter++;     /* Increment the interrupt count.  */
+
+   /* Put the semaphore from the interrupt handler.  */
+    tm_semaphore_put(0);
 }
 
 
@@ -118,13 +132,14 @@ int status;
     while(1)
     {
 
-        /* Force an interrupt. The underlying RTOS must see that the 
+        /* Force an interrupt. The underlying RTOS must see that the
            the interrupt handler is called from the appropriate software
            interrupt or trap. */
-        asm(" svc 0\n");    /* This is Cortex-M specific.  */
+
+      irq_offload(SVC_Handler, NULL);
 
         /* We won't get back here until the interrupt processing is complete,
-           including the setting of the semaphore from the interrupt 
+           including the setting of the semaphore from the interrupt
            handler.  */
 
         /* Pickup the semaphore set by the interrupt handler. */
@@ -140,15 +155,6 @@ int status;
 }
 
 
-/* void  tm_interrupt_preemption_handler(void)  */
-void SVC_Handler(void)        /* This is Cortex-M specific  */
-{
-
-    tm_interrupt_handler_counter++;     /* Increment the interrupt count.  */
-
-   /* Put the semaphore from the interrupt handler.  */
-    tm_semaphore_put(0);
-}
 
 
 
@@ -187,9 +193,9 @@ unsigned long   average;
         average =  total/2;
 
         /* See if there are any errors.  */
-        if ((tm_interrupt_thread_0_counter < (average - 1)) || 
+        if ((tm_interrupt_thread_0_counter < (average - 1)) ||
             (tm_interrupt_thread_0_counter > (average + 1)) ||
-            (tm_interrupt_handler_counter < (average - 1)) || 
+            (tm_interrupt_handler_counter < (average - 1)) ||
             (tm_interrupt_handler_counter > (average + 1)))
         {
 #ifdef ENABLE_PRINTF
